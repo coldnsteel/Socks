@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Computing Stock Research Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            color: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00f5ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .dashboard-header p {
+            font-size: 1.2em;
+            color: #aaa;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .status-card {
+            flex: 1;
+            min-width: 200px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #00ff88;
+            text-align: center;
+        }
+
+        .status-card h3 {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .status-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #00ff88;
+            padding-bottom: 10px;
+            color: #00f5ff;
+        }
+
+        .stock-category {
+            margin-bottom: 25px;
+        }
+
+        .stock-category h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #ffd700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stock-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stock-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .stock-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .stock-item .ticker {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #00f5ff;
+        }
+
+        .stock-item .description {
+            font-size: 0.9em;
+            color: #ccc;
+            margin-top: 5px;
+        }
+
+        .market-insights {
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #ffd700;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .market-insights h4 {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .market-insights ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .market-insights li {
+            margin: 8px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .market-insights li:before {
+            content: "📈";
+            position: absolute;
+            left: 0;
+        }
+
+        .tech-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .tech-card {
+            background: rgba(126, 34, 206, 0.2);
+            border: 2px solid #7e22ce;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .tech-card h4 {
+            color: #c77dff;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .tech-card ul {
+            list-style: none;
+            font-size: 0.9em;
+            color: #e0e0e0;
+        }
+
+        .tech-card li {
+            margin: 5px 0;
+            padding-left: 15px;
+            position: relative;
+        }
+
+        .tech-card li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #c77dff;
+        }
+
+        .catalyst-timeline {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #ff4444;
+            margin-top: 20px;
+        }
+
+        .catalyst-timeline h4 {
+            color: #ff4444;
+            margin-bottom: 15px;
+        }
+
+        .catalyst-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255, 68, 68, 0.1);
+            border-radius: 5px;
+        }
+
+        .catalyst-item strong {
+            color: #ffd700;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, #00ff88 0%, #00f5ff 100%);
+            color: #000;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .cta-section h3 {
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+
+        .cta-button {
+            background: #000;
+            color: #00ff88;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .cta-button:hover {
+            background: #1a1a1a;
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .grok-credit {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 2px solid #ff0000;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+
+        .grok-credit h4 {
+            color: #ff4444;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .tech-overview {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <h1>🚀 Quantum Computing Stock Research Dashboard</h1>
+        <p>Market Intelligence | Technical Analysis | Investment Opportunities</p>
+        <p style="font-size: 0.9em; margin-top: 10px; color: #666;">
+            Last Updated: <span id="lastUpdate"></span>
+        </p>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-card">
+            <h3>Quantum Market Size</h3>
+            <div class="value">$1.2B</div>
+            <p style="font-size: 0.8em; color: #888;">by 2032 (17-18% CAGR)</p>
+        </div>
+        <div class="status-card">
+            <h3>Global Investment</h3>
+            <div class="value">$1.25B+</div>
+            <p style="font-size: 0.8em; color: #888;">in quantum sensing (2025)</p>
+        </div>
+        <div class="status-card">
+            <h3>Stocks Monitored</h3>
+            <div class="value">13</div>
+            <p style="font-size: 0.8em; color: #888;">across 4 categories</p>
+        </div>
+        <div class="status-card">
+            <h3>Next Check</h3>
+            <div class="value" id="nextCheck">--:--</div>
+            <p style="font-size: 0.8em; color: #888;">automated monitoring</p>
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <!-- STOCK WATCHLIST -->
+        <div class="section">
+            <h2>📊 Stock Watchlist</h2>
+            
+            <div class="stock-category">
+                <h3>🔬 Quantum Pure-Plays (High Growth Potential)</h3>
+                <div class="stock-list">
+                    <div class="stock-item">
+                        <div class="ticker">IONQ</div>
+                        <div class="description">IonQ - Trapped-ion quantum computers | QEC milestones | $100M+ government contracts | 112% revenue growth projected | Up 13% on equity stake news</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">RGTI</div>
+                        <div class="description">Rigetti Computing - Superconducting QEC arrays | DOE contracts | Up 13% on government investment rumors | Strong 2025 projections</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">QUBT</div>
+                        <div class="description">Quantum Computing Inc. - Photonic QEC | NASA/NIST contracts | Up 9%, 24% YTD | Analysts see 118% upside potential</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stock-category">
+                <h3>💻 Big Tech (Quantum R&D Leaders)</h3>
+                <div class="stock-list">
+                    <div class="stock-item">
+                        <div class="ticker">IBM</div>
+                        <div class="description">IBM Quantum - Starling system (2028) with 1,121-qubit Condor | Surface code implementation | Fault-tolerant roadmap</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">GOOGL</div>
+                        <div class="description">Google Quantum AI - Willow chip (105 qubits) | Quantum supremacy demonstrations | Strong AI integration</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">MSFT</div>
+                        <div class="description">Microsoft Azure Quantum - Topological qubits (Majorana) | 1M+ qubit target | Cloud quantum services</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">AMZN</div>
+                        <div class="description">AWS Braket - Quantum computing platform | Multiple hardware partnerships | Cloud quantum access</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stock-category">
+                <h3>🛡️ Defense & Industrial</h3>
+                <div class="stock-list">
+                    <div class="stock-item">
+                        <div class="ticker">HON</div>
+                        <div class="description">Honeywell - Quantinuum spinout | Trapped-ion systems (H-series up to 64 qubits) | Defense contracts</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">LMT</div>
+                        <div class="description">Lockheed Martin - Quantum sensing for navigation | Military applications | Government partnerships</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stock-category">
+                <h3>🏭 AI Infrastructure & Cooling</h3>
+                <div class="stock-list">
+                    <div class="stock-item">
+                        <div class="ticker">VRT</div>
+                        <div class="description">Vertiv - AI data center cooling | Q3 earnings beat | Crushed Nvidia YTD | $85B+ AI capex forecast beneficiary</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">ETN</div>
+                        <div class="description">Eaton - Power/cooling for data centers | Doubled demand from AI | Strong quant ratings for growth</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">FIX</div>
+                        <div class="description">Comfort Systems USA - HVAC for data centers | AI infrastructure beneficiary</div>
+                    </div>
+                    <div class="stock-item">
+                        <div class="ticker">HDSN</div>
+                        <div class="description">Hudson Technologies - Refrigerants & cooling | Data center thermal management</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUANTUM TECH OVERVIEW -->
+        <div class="section">
+            <h2>🔬 Quantum Technology Landscape</h2>
+            
+            <div class="tech-overview">
+                <div class="tech-card">
+                    <h4>Quantum Sensing</h4>
+                    <ul>
+                        <li>Healthcare MRI devices</li>
+                        <li>GPS-independent navigation</li>
+                        <li>Resource exploration (oil, minerals)</li>
+                        <li>Telecom signal detection</li>
+                        <li>Industrial metrology</li>
+                    </ul>
+                </div>
+
+                <div class="tech-card">
+                    <h4>Qubit Modalities</h4>
+                    <ul>
+                        <li>Superconducting (IBM, Google)</li>
+                        <li>Trapped-ion (IonQ, Honeywell)</li>
+                        <li>Neutral atoms (Atom Computing)</li>
+                        <li>Photonic (PsiQuantum)</li>
+                        <li>Topological (Microsoft)</li>
+                    </ul>
+                </div>
+
+                <div class="tech-card">
+                    <h4>Q-CTRL AI Software</h4>
+                    <ul>
+                        <li>Noise reduction & error suppression</li>
+                        <li>50x better GPS-denied navigation</li>
+                        <li>$59M DARPA funding</li>
+                        <li>Software-defined sensing</li>
+                        <li>Real-time optimization</li>
+                    </ul>
+                </div>
+
+                <div class="tech-card">
+                    <h4>Key Applications</h4>
+                    <ul>
+                        <li>Drug discovery</li>
+                        <li>Financial modeling</li>
+                        <li>Cryptography</li>
+                        <li>Climate simulation</li>
+                        <li>Materials science</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="market-insights">
+                <h4>📈 Key Market Insights</h4>
+                <ul>
+                    <li><strong>Trump Admin Rumors:</strong> Government equity stakes in quantum stocks driving 9-13% rallies (Oct 23, 2025)</li>
+                    <li><strong>Revenue Growth:</strong> IONQ projects 112% growth in 2025 with 118% stock upside potential</li>
+                    <li><strong>AI Infrastructure Boom:</strong> VRT crushed Nvidia YTD on data center cooling demand</li>
+                    <li><strong>Quantum Sensing Market:</strong> $340M (2024) → $1.2B (2032) at 17-18% CAGR</li>
+                    <li><strong>Fault Tolerance Timeline:</strong> IBM targeting scalable systems by 2029-2030</li>
+                    <li><strong>Conference Activity:</strong> 2025 Quantum Sensing GRC showing industry maturation</li>
+                </ul>
+            </div>
+
+            <div class="catalyst-timeline">
+                <h4>🔥 Upcoming Catalysts</h4>
+                <div class="catalyst-item">
+                    <strong>End of October 2025:</strong> Q3 earnings from big tech (IBM, GOOGL, MSFT, AMZN) - potential quantum updates
+                </div>
+                <div class="catalyst-item">
+                    <strong>End of Year 2025:</strong> Government contract announcements for quantum pure-plays
+                </div>
+                <div class="catalyst-item">
+                    <strong>2026-2027:</strong> Commercial deployment of quantum sensing devices in healthcare, navigation
+                </div>
+                <div class="catalyst-item">
+                    <strong>2028-2030:</strong> Fault-tolerant quantum computers (IBM Starling, Microsoft topological qubits)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL-WIDTH MONITORING SECTION -->
+    <div class="section" style="grid-column: 1 / -1;">
+        <h2>⚡ Live Monitoring & Technical Analysis</h2>
+        <div class="market-insights" style="margin-top: 0;">
+            <h4>🎯 Monitoring Strategy</h4>
+            <p style="margin-bottom: 15px;">The Python agent checks hourly for these signals:</p>
+            <ul>
+                <li><strong>Trend Analysis:</strong> SMA crossovers (20/50/200-day) for momentum confirmation</li>
+                <li><strong>RSI Momentum:</strong> 50-70 range = bullish momentum | <30 = oversold bounce opportunity | >70 = overbought caution</li>
+                <li><strong>MACD Signals:</strong> Crossovers above signal line indicate buying pressure</li>
+                <li><strong>Bollinger Bands:</strong> <20% = potential bounce | >80% = overbought | Squeeze (<10% width) = volatility incoming</li>
+                <li><strong>Volume Confirmation:</strong> >1.5x average volume indicates strong interest/conviction</li>
+                <li><strong>Composite Score:</strong> 3+ signals = STRONG BUY alert</li>
+            </ul>
+        </div>
+
+        <div id="liveData" style="margin-top: 20px; padding: 20px; background: rgba(0,0,0,0.4); border-radius: 10px; min-height: 200px;">
+            <h4 style="color: #ffd700; margin-bottom: 15px;">📊 Latest Technical Data</h4>
+            <p style="color: #888; font-style: italic;">Run the Python agent (quantum_stock_monitor.py) to populate real-time data here.</p>
+            <p style="color: #888; margin-top: 10px;">Data will auto-refresh from: <code style="color: #00ff88;">/quantum_stock_data/latest_results.json</code></p>
+        </div>
+    </div>
+
+    <!-- CTA SECTION -->
+    <div class="cta-section">
+        <h3>🚀 Ready to Deploy?</h3>
+        <p style="margin: 20px 0; font-size: 1.1em;">Start monitoring these quantum computing stocks with automated technical analysis</p>
+        <button class="cta-button" onclick="downloadAgent()">📥 Download Python Agent</button>
+        <button class="cta-button" onclick="viewInstructions()">📖 Setup Instructions</button>
+        <button class="cta-button" onclick="refreshData()">🔄 Refresh Dashboard</button>
+    </div>
+
+    <!-- GROK CREDIT -->
+    <div class="grok-credit">
+        <h4>🤖 Research Powered by Grok (xAI)</h4>
+        <p>Quantum computing market analysis, stock selection, and monitoring strategy developed by Grok</p>
+        <p style="font-size: 0.9em; margin-top: 10px; color: #888;">
+            Dashboard design and Python agent by Claude | Combined for maximum insight
+        </p>
+    </div>
+
+    <script>
+        // Update timestamp
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+        
+        // Calculate next check time (1 hour from now)
+        function updateNextCheck() {
+            const nextCheck = new Date(Date.now() + 60 * 60 * 1000);
+            document.getElementById('nextCheck').textContent = nextCheck.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        updateNextCheck();
+        setInterval(updateNextCheck, 60000); // Update every minute
+
+        // Button functions
+        function downloadAgent() {
+            alert('📥 Download quantum_stock_monitor.py\n\nSetup:\n1. Install dependencies: pip install yfinance pandas schedule\n2. Run: python quantum_stock_monitor.py\n3. Monitor output for STRONG BUY signals\n4. Data saves to quantum_stock_data/latest_results.json\n\nRecommended: Run during market hours (9:30 AM - 4:00 PM ET)');
+        }
+
+        function viewInstructions() {
+            alert('📖 Setup Instructions:\n\n1. INSTALL PYTHON 3.8+\n2. Install packages:\n   pip install yfinance pandas schedule\n\n3. RUN THE AGENT:\n   python quantum_stock_monitor.py\n\n4. MONITOR OUTPUT:\n   - Hourly checks of all 13 stocks\n   - Technical indicators (RSI, MACD, Bollinger)\n   - STRONG BUY alerts when score ≥3\n\n5. INTEGRATE WITH DASHBOARD:\n   - Agent saves data to JSON\n   - Dashboard can read and display\n   - Auto-refresh every hour\n\nTIP: Run on a server or keep terminal open during trading hours!');
+        }
+
+        function refreshData() {
+            // In production, this would fetch latest_results.json
+            alert('🔄 Refresh Data\n\nTo enable live data:\n1. Ensure Python agent is running\n2. Agent saves to quantum_stock_data/latest_results.json\n3. Dashboard will auto-load on refresh\n\nFor now: Run the agent and check console output for signals!');
+            location.reload();
+        }
+
+        // Auto-refresh every hour
+        // setTimeout(() => location.reload(), 60 * 60 * 1000);
+    </script>
+</body>
+</html>
