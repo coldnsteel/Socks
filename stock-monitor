@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Quantum Stock Monitor Agent
+Quantum Stock Monitor Agent - FIXED VERSION
+Handles yfinance MultiIndex column issues
 Enhanced with Bollinger Bands, email alerts, and comprehensive tracking
 Based on Grok's research into quantum computing stocks
 """
@@ -12,6 +13,10 @@ import time
 from datetime import datetime
 import json
 import os
+import warnings
+
+# Suppress FutureWarnings from yfinance
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 # List of stocks from Grok's quantum computing research
 QUANTUM_PURE_PLAYS = ['IONQ', 'RGTI', 'QUBT']
@@ -31,28 +36,44 @@ RSI_MOMENTUM_HIGH = 70
 def calculate_indicators(ticker, days=200):
     """Calculate comprehensive technical indicators for a stock"""
     try:
-        # Download historical data
-        data = yf.download(ticker, period=f'{days}d', progress=False)
+        # Download historical data with auto_adjust set explicitly
+        data = yf.download(ticker, period=f'{days}d', progress=False, auto_adjust=True)
+        
+        # Handle MultiIndex columns (common yfinance issue)
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+        
         if data.empty:
             return None
         
+        # Ensure we have the required columns
+        if 'Close' not in data.columns:
+            print(f"Warning: 'Close' column not found for {ticker}")
+            return None
+        
         # Calculate SMAs
-        data['SMA20'] = data['Close'].rolling(window=20).mean()
-        data['SMA50'] = data['Close'].rolling(window=50).mean()
-        data['SMA200'] = data['Close'].rolling(window=200).mean()
+        data['SMA20'] = data['Close'].rolling(window=20, min_periods=1).mean()
+        data['SMA50'] = data['Close'].rolling(window=50, min_periods=1).mean()
+        data['SMA200'] = data['Close'].rolling(window=200, min_periods=1).mean()
         
         # Calculate Bollinger Bands (20-day, 2 std dev)
-        data['BB_Middle'] = data['Close'].rolling(window=20).mean()
-        bb_std = data['Close'].rolling(window=20).std()
+        bb_period = 20
+        data['BB_Middle'] = data['Close'].rolling(window=bb_period, min_periods=1).mean()
+        bb_std = data['Close'].rolling(window=bb_period, min_periods=1).std()
         data['BB_Upper'] = data['BB_Middle'] + (bb_std * 2)
         data['BB_Lower'] = data['BB_Middle'] - (bb_std * 2)
+        
+        # Calculate BB Width safely
         data['BB_Width'] = ((data['BB_Upper'] - data['BB_Lower']) / data['BB_Middle']) * 100
+        data['BB_Width'] = data['BB_Width'].replace([float('inf'), -float('inf')], 0)
         
         # Calculate RSI (14-day)
         delta = data['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
+        gain = (delta.where(delta > 0, 0)).rolling(window=14, min_periods=1).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14, min_periods=1).mean()
+        
+        # Avoid division by zero
+        rs = gain / loss.replace(0, 1e-10)
         data['RSI'] = 100 - (100 / (1 + rs))
         
         # MACD (12-26 EMA difference, 9-day signal)
@@ -63,31 +84,50 @@ def calculate_indicators(ticker, days=200):
         data['MACD_Histogram'] = data['MACD'] - data['MACD_Signal']
         
         # Volume analysis
-        data['Volume_SMA'] = data['Volume'].rolling(window=20).mean()
-        data['Volume_Ratio'] = data['Volume'] / data['Volume_SMA']
+        if 'Volume' in data.columns:
+            data['Volume_SMA'] = data['Volume'].rolling(window=20, min_periods=1).mean()
+            data['Volume_Ratio'] = data['Volume'] / data['Volume_SMA'].replace(0, 1)
+        else:
+            data['Volume_Ratio'] = 1.0
         
+        # Get latest and previous data
         latest = data.iloc[-1]
-        previous = data.iloc[-2]
+        if len(data) > 1:
+            previous = data.iloc[-2]
+        else:
+            previous = latest
         
-        return {
+        # Build result dictionary with safe value extraction
+        result = {
             'ticker': ticker,
-            'price': float(latest['Close']),
-            'change_pct': float(((latest['Close'] - previous['Close']) / previous['Close']) * 100),
-            'volume': int(latest['Volume']),
-            'volume_ratio': float(latest['Volume_Ratio']),
-            'sma20': float(latest['SMA20']),
-            'sma50': float(latest['SMA50']),
+            'price': float(latest['Close']) if not pd.isna(latest['Close']) else 0.0,
+            'change_pct': float(((latest['Close'] - previous['Close']) / previous['Close']) * 100) if previous['Close'] != 0 else 0.0,
+            'volume': int(latest.get('Volume', 0)) if 'Volume' in latest.index else 0,
+            'volume_ratio': float(latest['Volume_Ratio']) if not pd.isna(latest['Volume_Ratio']) else 1.0,
+            'sma20': float(latest['SMA20']) if not pd.isna(latest['SMA20']) else None,
+            'sma50': float(latest['SMA50']) if not pd.isna(latest['SMA50']) else None,
             'sma200': float(latest['SMA200']) if not pd.isna(latest['SMA200']) else None,
-            'bb_upper': float(latest['BB_Upper']),
-            'bb_middle': float(latest['BB_Middle']),
-            'bb_lower': float(latest['BB_Lower']),
-            'bb_width': float(latest['BB_Width']),
-            'bb_position': float(((latest['Close'] - latest['BB_Lower']) / (latest['BB_Upper'] - latest['BB_Lower'])) * 100),
-            'rsi': float(latest['RSI']),
-            'macd': float(latest['MACD']),
-            'macd_signal': float(latest['MACD_Signal']),
-            'macd_histogram': float(latest['MACD_Histogram'])
+            'bb_upper': float(latest['BB_Upper']) if not pd.isna(latest['BB_Upper']) else None,
+            'bb_middle': float(latest['BB_Middle']) if not pd.isna(latest['BB_Middle']) else None,
+            'bb_lower': float(latest['BB_Lower']) if not pd.isna(latest['BB_Lower']) else None,
+            'bb_width': float(latest['BB_Width']) if not pd.isna(latest['BB_Width']) else 0.0,
         }
+        
+        # Calculate BB position safely
+        if result['bb_upper'] and result['bb_lower'] and result['bb_upper'] != result['bb_lower']:
+            result['bb_position'] = float(((latest['Close'] - latest['BB_Lower']) / (latest['BB_Upper'] - latest['BB_Lower'])) * 100)
+        else:
+            result['bb_position'] = 50.0
+        
+        result.update({
+            'rsi': float(latest['RSI']) if not pd.isna(latest['RSI']) else 50.0,
+            'macd': float(latest['MACD']) if not pd.isna(latest['MACD']) else 0.0,
+            'macd_signal': float(latest['MACD_Signal']) if not pd.isna(latest['MACD_Signal']) else 0.0,
+            'macd_histogram': float(latest['MACD_Histogram']) if not pd.isna(latest['MACD_Histogram']) else 0.0
+        })
+        
+        return result
+        
     except Exception as e:
         print(f"Error calculating indicators for {ticker}: {e}")
         return None
@@ -98,10 +138,10 @@ def analyze_signals(data):
     score = 0
     
     # Trend signals (SMA crossovers)
-    if data['price'] > data['sma20'] > data['sma50']:
+    if data['sma20'] and data['sma50'] and data['price'] > data['sma20'] > data['sma50']:
         signals.append("✅ Strong uptrend (Price > SMA20 > SMA50)")
         score += 1
-    elif data['price'] > data['sma20']:
+    elif data['sma20'] and data['price'] > data['sma20']:
         signals.append("⚠️ Short-term uptrend (Price > SMA20)")
         score += 0.5
     
@@ -205,6 +245,9 @@ def check_stocks():
             'score': score,
             'category': category
         })
+        
+        # Small delay to avoid rate limiting
+        time.sleep(0.5)
     
     # Summary of strong buy signals
     if strong_buys:
